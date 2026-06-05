@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -44,7 +43,7 @@ var tasks = map[string]Task{
 // Ниже напишите обработчики для каждого эндпоинта
 // ...
 
-func getTasks(w http.ResponseWriter, r *http.Request) {
+func ListTasks(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(tasks)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -56,18 +55,20 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-func postTask(w http.ResponseWriter, r *http.Request) {
+func createTask(w http.ResponseWriter, r *http.Request) {
 	var task Task
-	var buf bytes.Buffer
 
-	_, err := buf.ReadFrom(r.Body)
+	defer r.Body.Close()
+
+	err := json.NewDecoder(r.Body).Decode(&task)
+
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
 
-	if err = json.Unmarshal(buf.Bytes(), &task); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if task.ID == "" {
+		http.Error(w, "id is required", http.StatusBadRequest)
 		return
 	}
 
@@ -82,7 +83,7 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	task, ok := tasks[id]
 	if !ok {
 		w.Header().Set("Content-Type", "application/json")
-		http.Error(w, "Задача не найдена", http.StatusNoContent)
+		http.Error(w, "Задача не найдена", http.StatusNotFound)
 		return
 	}
 
@@ -119,13 +120,13 @@ func main() {
 	// здесь регистрируйте ваши обработчики
 	// ...
 	// получить список задач
-	r.Get("/tasks", getTasks)
+	r.Get("/tasks", ListTasks)
 
 	//создать новую задач
-	r.Post("/tasks", postTask)
+	r.Post("/tasks", createTask)
 
 	// получить задачу по id
-	r.Get("/task/{id}", getTask)
+	r.Get("/tasks/{id}", getTask)
 
 	//удалить задачу по id
 	r.Delete("/tasks/{id}", deleteTask)
